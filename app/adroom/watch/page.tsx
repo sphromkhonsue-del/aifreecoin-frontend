@@ -11,10 +11,25 @@ export default function WatchAdPage() {
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [coins, setCoins] = useState<number>(160);
 
-  // ระบบหมุนเวียนค่ายโฆษณา (1 - 15) และเวลาพัก 5 นาที
-  const [currentNetwork, setCurrentNetwork] = useState<number>(1);
-  const [isCoolingDown, setIsCoolingDown] = useState<boolean>(false);
-  const [cooldownTime, setCooldownTime] = useState<number>(300); // 300 วินาที = 5 นาที
+  // ระบบหมุนเวียนค่ายโฆษณา (1 - 15) และโหลดค่าล่าสุดจาก localStorage
+  const [currentNetwork, setCurrentNetwork] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('currentAdNetwork');
+      return saved ? parseInt(saved, 10) : 1;
+    }
+    return 1;
+  });
+
+  // เปลี่ยนจาก Cooldown เป็นโหมดเล่าเรื่องผี 15 นาที (900 วินาที)
+  const [isGhostStoryMode, setIsGhostStoryMode] = useState<boolean>(false);
+  const [ghostStoryTime, setGhostStoryTime] = useState<number>(900); // 15 นาที = 900 วินาที
+
+  // บันทึก currentNetwork ลง localStorage ทุกครั้งที่มีการเปลี่ยนแปลง
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentAdNetwork', currentNetwork.toString());
+    }
+  }, [currentNetwork]);
 
   // ตัวนับเวลาเล่นโฆษณา 15 วินาที
   useEffect(() => {
@@ -32,37 +47,37 @@ export default function WatchAdPage() {
       if (currentNetwork < 15) {
         setCurrentNetwork((prev) => prev + 1);
       } else {
-        // ถ้าดูครบ 15 ค่าย ให้เริ่มพัก 5 นาที
+        // ถ้าดูครบ 15 ค่าย ให้เริ่มเข้าสู่โหมดเล่าเรื่องผี 15 นาที แล้ววนกลับมาที่ 1
         setCurrentNetwork(1);
-        setIsCoolingDown(true);
-        setCooldownTime(300);
+        setIsGhostStoryMode(true);
+        setGhostStoryTime(900);
       }
     }
     return () => clearInterval(timer);
   }, [isPlaying, timeLeft, currentNetwork]);
 
-  // ตัวนับเวลาพัก 5 นาที (Cooldown)
+  // ตัวนับเวลาเล่าเรื่องผี 15 นาที
   useEffect(() => {
-    let coolTimer: NodeJS.Timeout;
-    if (isCoolingDown && cooldownTime > 0) {
-      coolTimer = setInterval(() => {
-        setCooldownTime((prev) => prev - 1);
+    let ghostTimer: NodeJS.Timeout;
+    if (isGhostStoryMode && ghostStoryTime > 0) {
+      ghostTimer = setInterval(() => {
+        setGhostStoryTime((prev) => prev - 1);
       }, 1000);
-    } else if (isCoolingDown && cooldownTime === 0) {
-      setIsCoolingDown(false);
+    } else if (isGhostStoryMode && ghostStoryTime === 0) {
+      setIsGhostStoryMode(false); // ครบ 15 นาที ปลดล็อกให้ดูโฆษณาต่อได้ หรือผู้ใช้กดออกเอง
     }
-    return () => clearInterval(coolTimer);
-  }, [isCoolingDown, cooldownTime]);
+    return () => clearInterval(ghostTimer);
+  }, [isGhostStoryMode, ghostStoryTime]);
 
   const startAd = () => {
-    if (isCoolingDown) return;
+    if (isGhostStoryMode) return;
     setTimeLeft(15);
     setIsCompleted(false);
     setIsPlaying(true);
   };
 
-  // แปลงวินาทีพักเป็น นาที:วินาที
-  const formatCooldown = (seconds: number) => {
+  // แปลงวินาทีเป็น นาที:วินาที
+  const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -80,8 +95,8 @@ export default function WatchAdPage() {
       successTitle: `🎉 ยินดีด้วย! ชมโฆษณาค่ายที่ ${currentNetwork === 1 ? 15 : currentNetwork - 1} สำเร็จ (+10 Coins)`,
       watchAgain: `🎬 ชมโฆษณาค่ายที่ ${currentNetwork} ต่อไป`,
       currentCoins: 'เหรียญสะสมปัจจุบัน:',
-      cooldownTitle: '⏳ อยู่ระหว่างช่วงพักระบบ 5 นาที',
-      cooldownDesc: 'คุณชมโฆษณาครบทั้ง 15 ค่ายเรียบร้อยแล้ว ระบบจะเปิดให้รับชมรอบใหม่ในอีก',
+      ghostTitle: '👻 กำลังเล่นช่วงเล่าเรื่องผีต่อเนื่อง',
+      ghostDesc: 'คุณชมโฆษณาครบทั้ง 15 ค่ายแล้ว ระบบกำลังเล่นเรื่องผีให้ฟัง คุณสามารถเลือกฟังต่อหรือกดออกจากห้องได้เองเมื่อครบเวลาใน:',
     },
     en: {
       title: 'Watch Ad & Earn Coins',
@@ -94,8 +109,8 @@ export default function WatchAdPage() {
       successTitle: `🎉 Reward Claimed from Provider #${currentNetwork === 1 ? 15 : currentNetwork - 1}! (+10 Coins)`,
       watchAgain: `🎬 Watch Next Ad (Provider #${currentNetwork})`,
       currentCoins: 'Current Coins:',
-      cooldownTitle: '⏳ System 5-Minute Break Rate Limit',
-      cooldownDesc: 'You have completed all 15 Ad Providers. Next session starts in:',
+      ghostTitle: '👻 Ghost Story Session in Progress',
+      ghostDesc: 'You have completed all 15 ad providers. Enjoying ghost stories now. Time remaining:',
     },
     ja: {
       title: '広告視聴ルーム',
@@ -108,8 +123,8 @@ export default function WatchAdPage() {
       successTitle: `🎉 おめでとうございます！ネットワーク #${currentNetwork === 1 ? 15 : currentNetwork - 1} 完了！`,
       watchAgain: `🎬 次の広告を視聴する (#${currentNetwork})`,
       currentCoins: '現在の所持コイン:',
-      cooldownTitle: '⏳ 5分間の休憩モード',
-      cooldownDesc: '15の広告をすべて視聴しました。次のセッション開始まで:',
+      ghostTitle: '👻 怖い話セッション中',
+      ghostDesc: '15の広告をすべて視聴しました。怪談をお楽しみください。残り時間:',
     },
     zh: {
       title: '看广告赚金币',
@@ -122,8 +137,8 @@ export default function WatchAdPage() {
       successTitle: `🎉 恭喜完成 平台 #${currentNetwork === 1 ? 15 : currentNetwork - 1} 观看！(+10 金币)`,
       watchAgain: `🎬 观看下一个广告 (平台 #${currentNetwork})`,
       currentCoins: '当前金币：',
-      cooldownTitle: '⏳ 5分钟系统休息冷却中',
-      cooldownDesc: '您已完成所有 15 个平台的广告观看。距离下一轮开放在：',
+      ghostTitle: '👻 灵异故事播放中',
+      ghostDesc: '您已完成所有 15 个平台的广告。正在为您播放鬼故事，剩余时间：',
     },
     es: {
       title: 'Sala de Anuncios',
@@ -136,8 +151,8 @@ export default function WatchAdPage() {
       successTitle: `🎉 ¡Recompensa del Proveedor #${currentNetwork === 1 ? 15 : currentNetwork - 1}!`,
       watchAgain: `🎬 Ver siguiente anuncio (#${currentNetwork})`,
       currentCoins: 'Monedas actuales:',
-      cooldownTitle: '⏳ Descanso de 5 Minutos',
-      cooldownDesc: 'Has completado los 15 proveedores. Próxima sesión en:',
+      ghostTitle: '👻 Sesión de historias de terror',
+      ghostDesc: 'Has completado los 15 anuncios. Disfrutando de historias de terror. Tiempo restante:',
     },
   }[lang];
 
@@ -168,17 +183,17 @@ export default function WatchAdPage() {
 
         {/* Video Player Box Simulation */}
         <div className="relative aspect-video w-full bg-slate-950 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center mb-6 shadow-inner p-4">
-          {isCoolingDown ? (
-            /* หน้าต่าง Cooldown พัก 5 นาที */
+          {isGhostStoryMode ? (
+            /* หน้าต่างโหมดเล่าเรื่องผี 15 นาที (ผู้ใช้กดออกเอง หรือรอจนครบเวลาเพื่อดูโฆษณาต่อ) */
             <div className="space-y-3">
-              <span className="text-4xl animate-pulse">☕</span>
-              <h3 className="text-amber-400 font-bold text-sm">{t.cooldownTitle}</h3>
+              <span className="text-4xl animate-bounce">👻</span>
+              <h3 className="text-purple-400 font-bold text-sm">{t.ghostTitle}</h3>
               <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
-                {t.cooldownDesc}
+                {t.ghostDesc}
               </p>
-              <div className="bg-amber-400/10 border border-amber-400/30 px-6 py-2 rounded-full inline-block mt-2">
-                <span className="text-amber-400 font-mono font-extrabold text-2xl">
-                  {formatCooldown(cooldownTime)}
+              <div className="bg-purple-400/10 border border-purple-400/30 px-6 py-2 rounded-full inline-block mt-2">
+                <span className="text-purple-400 font-mono font-extrabold text-2xl">
+                  {formatTime(ghostStoryTime)}
                 </span>
               </div>
             </div>
